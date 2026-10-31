@@ -1,0 +1,36 @@
+name: Daily price snapshot
+
+on:
+  schedule:
+    # Cardmarket regenerates its price guide around 02:00–03:00 UTC.
+    - cron: '30 4 * * *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: snapshot
+  cancel-in-progress: false
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Save today's prices
+        run: node scripts/snapshot.mjs
+      - name: Commit
+        run: |
+          git config user.name "price-history-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data
+          if git diff --cached --quiet; then
+            echo "No changes"
+          else
+            git commit -m "Prices $(date -u +%Y-%m-%d)"
+            git push
+          fi
